@@ -6,6 +6,7 @@ const PORT = Number(process.env.PORT || 3021);
 const DB_FILE = process.env.DB_FILE || path.join(__dirname, "data", "db.json");
 
 const REPAIR_STATUSES = ["在修", "待取件", "已取件"];
+const DAY_SECONDS = 86400;
 
 const initialData = {
   clocks: [
@@ -206,6 +207,21 @@ function validStatus(status) {
   return status;
 }
 
+function validNumber(value, field, min, max, exclusiveMin = false) {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    const error = new Error(`${field}必须是数字`);
+    error.status = 400;
+    throw error;
+  }
+  const tooLow = exclusiveMin ? value <= min : value < min;
+  if (tooLow || value > max) {
+    const error = new Error(`${field}超出允许范围：${exclusiveMin ? "(" : "["}${min}, ${max}]`);
+    error.status = 400;
+    throw error;
+  }
+  return value;
+}
+
 function latestRetest(db, clockId) {
   return db.retests
     .filter((item) => item.clockId === clockId)
@@ -263,12 +279,15 @@ async function handle(req, res) {
     if (body.customerId !== undefined && body.customerId !== null) {
       findCustomer(db, body.customerId);
     }
+    if (body.targetDailyRateSeconds !== undefined && body.targetDailyRateSeconds !== null) {
+      validNumber(body.targetDailyRateSeconds, "targetDailyRateSeconds", 0, DAY_SECONDS, true);
+    }
     const clock = {
       id: makeId("clock"),
       code: body.code,
       escapementType: body.escapementType,
       balanceFrequency: body.balanceFrequency,
-      targetDailyRateSeconds: Number(body.targetDailyRateSeconds ?? 30),
+      targetDailyRateSeconds: body.targetDailyRateSeconds ?? 30,
       note: body.note || "",
       customerId: body.customerId || null,
       createdAt: new Date().toISOString()
@@ -296,10 +315,11 @@ async function handle(req, res) {
     const clock = findClock(db, adjustmentMatch[1]);
     const body = await parseBody(req);
     required(body, ["currentDailyRateSeconds", "direction", "amount"]);
+    validNumber(body.currentDailyRateSeconds, "currentDailyRateSeconds", -DAY_SECONDS, DAY_SECONDS);
     const adjustment = {
       id: makeId("adjustment"),
       clockId: clock.id,
-      currentDailyRateSeconds: Number(body.currentDailyRateSeconds),
+      currentDailyRateSeconds: body.currentDailyRateSeconds,
       direction: body.direction,
       amount: body.amount,
       note: body.note || "",
@@ -315,17 +335,19 @@ async function handle(req, res) {
     const clock = findClock(db, retestMatch[1]);
     const body = await parseBody(req);
     required(body, ["dailyRateSeconds", "amplitude"]);
+    validNumber(body.dailyRateSeconds, "dailyRateSeconds", -DAY_SECONDS, DAY_SECONDS);
+    validNumber(body.amplitude, "amplitude", 0, 360, true);
     const adjustmentId = body.adjustmentId || latestAdjustment(db, clock.id)?.id || null;
     const qualified = body.qualified !== undefined
       ? Boolean(body.qualified)
-      : Math.abs(Number(body.dailyRateSeconds)) <= Number(clock.targetDailyRateSeconds);
+      : Math.abs(body.dailyRateSeconds) <= Number(clock.targetDailyRateSeconds);
     const retest = {
       id: makeId("retest"),
       clockId: clock.id,
       adjustmentId,
       testedAt: body.testedAt || new Date().toISOString(),
-      dailyRateSeconds: Number(body.dailyRateSeconds),
-      amplitude: Number(body.amplitude),
+      dailyRateSeconds: body.dailyRateSeconds,
+      amplitude: body.amplitude,
       qualified,
       note: body.note || ""
     };

@@ -56,6 +56,9 @@ npm test
 - 客户姓名、联系电话必须是非空字符串（自动裁剪首尾空格），其他类型返回 400
 - `expectedPickupDate`、`receivedAt` 必须可解析为合法日期（`receivedAt` 省略或传 `null` 时默认当前时间）
 - `status` 省略时默认「在修」；显式传 `null`、空字符串或非法值一律 400（创建与修改口径一致）
+- 数值字段只接受 JSON 数字（字符串、对象、数组、布尔一律 400）：
+  `targetDailyRateSeconds` ∈ (0, 86400]（省略或传 `null` 默认 30），
+  `currentDailyRateSeconds`、`dailyRateSeconds` ∈ [-86400, 86400]，`amplitude` ∈ (0, 360]
 - 非法请求只返回 400 错误，不会写入任何客户、送修或修改记录
 
 ## 闭环示例
