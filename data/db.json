@@ -7,6 +7,7 @@
       "balanceFrequency": "18000vph",
       "targetDailyRateSeconds": 20,
       "note": "怀表机芯，走时偏快",
+      "customerId": "customer_demo",
       "createdAt": "2026-06-16T00:00:00.000Z"
     }
   ],
@@ -31,6 +32,27 @@
       "amplitude": 248,
       "qualified": false,
       "note": "仍偏快，振幅尚可"
+    }
+  ],
+  "customers": [
+    {
+      "id": "customer_demo",
+      "name": "陈守时",
+      "phone": "13800001111",
+      "note": "老主顾，取件前电话确认",
+      "createdAt": "2026-06-16T00:00:00.000Z"
+    }
+  ],
+  "repairIntakes": [
+    {
+      "id": "intake_demo",
+      "clockId": "clock_demo",
+      "customerId": "customer_demo",
+      "receivedAt": "2026-06-16T00:00:00.000Z",
+      "status": "在修",
+      "expectedPickupDate": "2026-07-16",
+      "note": "洗油保养并调校走时",
+      "pickedUpAt": null
     }
   ]
 }

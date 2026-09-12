@@ -1,0 +1,10 @@
+{
+  "name": "clock-escapement-tuning-api",
+  "version": "1.0.0",
+  "private": true,
+  "description": "机械钟表擒纵调校API：钟表档案、调校复测、客户档案与送修登记",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test"
+  }
+}
