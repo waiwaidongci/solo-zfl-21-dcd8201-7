@@ -462,7 +462,7 @@ async function handle(req, res) {
     if (body.receivedAt !== undefined && body.receivedAt !== null) {
       parseDate(body.receivedAt, "送修时间不合法");
     }
-    const status = validStatus(body.status || "在修");
+    const status = body.status === undefined ? "在修" : validStatus(body.status);
     const intake = {
       id: makeId("intake"),
       clockId: clock.id,

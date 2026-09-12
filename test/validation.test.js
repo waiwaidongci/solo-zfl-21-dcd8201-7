@@ -190,6 +190,62 @@ test("送修修改：非法修改被拒绝且原记录不变", async () => {
   assert.equal(ok.body.data.status, "待取件");
 });
 
+test("送修状态：null、空字符串、非法状态被拒绝，省略默认在修", async () => {
+  const customer = await seedCustomer();
+  const clock = await seedBoundClock(customer.id);
+
+  // 创建：null、空字符串、非法状态 -> 400 且不写入
+  const badStatuses = [null, "", "   ", "已销毁", "done", 1];
+  for (const status of badStatuses) {
+    const res = await api("POST", "/repair-intakes", {
+      clockId: clock.id,
+      expectedPickupDate: "2026-10-01",
+      status
+    });
+    assert.equal(res.status, 400, `创建应拒绝 status=${JSON.stringify(status)}`);
+    assert.match(res.body.error, /状态不合法/);
+  }
+  let list = await api("GET", "/repair-intakes");
+  assert.equal(list.body.data.length, 0);
+
+  // 省略状态 -> 默认在修
+  const defaulted = await api("POST", "/repair-intakes", {
+    clockId: clock.id,
+    expectedPickupDate: "2026-10-01"
+  });
+  assert.equal(defaulted.status, 201);
+  assert.equal(defaulted.body.data.status, "在修");
+
+  // 显式合法状态 -> 按给定状态创建
+  const ready = await api("POST", "/repair-intakes", {
+    clockId: clock.id,
+    expectedPickupDate: "2026-10-02",
+    status: "待取件"
+  });
+  assert.equal(ready.status, 201);
+  assert.equal(ready.body.data.status, "待取件");
+
+  // 修改：null、空字符串、非法状态 -> 400 且原记录不变
+  const intakeId = defaulted.body.data.id;
+  for (const status of badStatuses) {
+    const res = await api("PATCH", `/repair-intakes/${intakeId}`, { status });
+    assert.equal(res.status, 400, `修改应拒绝 status=${JSON.stringify(status)}`);
+    assert.match(res.body.error, /状态不合法/);
+  }
+  list = await api("GET", "/repair-intakes");
+  const saved = list.body.data.find((item) => item.id === intakeId);
+  assert.equal(saved.status, "在修");
+
+  // 合法流转：在修 -> 待取件 -> 已取件
+  const toReady = await api("PATCH", `/repair-intakes/${intakeId}`, { status: "待取件" });
+  assert.equal(toReady.status, 200);
+  assert.equal(toReady.body.data.status, "待取件");
+  const toPicked = await api("PATCH", `/repair-intakes/${intakeId}`, { status: "已取件" });
+  assert.equal(toPicked.status, 200);
+  assert.equal(toPicked.body.data.status, "已取件");
+  assert.ok(toPicked.body.data.pickedUpAt);
+});
+
 test("旧接口必填字段传 null 同样被拒绝，正常流程不受影响", async () => {
   // 建钟：必填字段为 null
   const nullCode = await api("POST", "/clocks", {
