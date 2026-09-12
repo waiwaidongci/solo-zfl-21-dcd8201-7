@@ -354,6 +354,77 @@ test("数值字段：错误类型、不可解析内容与超范围被拒绝，�
   assert.equal(history.body.data.retests.length, 3);
 });
 
+test("字符串字段：错误类型与空值被拒绝，合法字符串正常", async () => {
+  // 数字、对象、数组、布尔、空串、纯空白、null 一律拒绝
+  const badStrings = [123, 0, {}, [], ["瑞士杠杆式"], true, "", "   ", null];
+
+  // 建钟 escapementType / balanceFrequency
+  for (const value of badStrings) {
+    const res = await api("POST", "/clocks", {
+      code: "CLK-STR",
+      escapementType: value,
+      balanceFrequency: "18000vph"
+    });
+    assert.equal(res.status, 400, `应拒绝 escapementType=${JSON.stringify(value)}`);
+    assert.match(res.body.error, /escapementType/);
+
+    const res2 = await api("POST", "/clocks", {
+      code: "CLK-STR",
+      escapementType: "瑞士杠杆式",
+      balanceFrequency: value
+    });
+    assert.equal(res2.status, 400, `应拒绝 balanceFrequency=${JSON.stringify(value)}`);
+    assert.match(res2.body.error, /balanceFrequency/);
+  }
+  let clocks = await api("GET", "/clocks");
+  assert.equal(clocks.body.data.length, 0);
+
+  // 合法字符串：正常建档，首尾空格裁剪后落盘
+  const created = await api("POST", "/clocks", {
+    code: "CLK-STR",
+    escapementType: " 瑞士杠杆式 ",
+    balanceFrequency: "18000vph"
+  });
+  assert.equal(created.status, 201);
+  assert.equal(created.body.data.escapementType, "瑞士杠杆式");
+  assert.equal(created.body.data.balanceFrequency, "18000vph");
+  const clockId = created.body.data.id;
+  clocks = await api("GET", "/clocks");
+  assert.equal(clocks.body.data.length, 1);
+
+  // 调校 direction / amount
+  for (const value of badStrings) {
+    const res = await api("POST", `/clocks/${clockId}/adjustments`, {
+      currentDailyRateSeconds: 55,
+      direction: value,
+      amount: "快慢针向慢侧0.3格"
+    });
+    assert.equal(res.status, 400, `应拒绝 direction=${JSON.stringify(value)}`);
+    assert.match(res.body.error, /direction/);
+
+    const res2 = await api("POST", `/clocks/${clockId}/adjustments`, {
+      currentDailyRateSeconds: 55,
+      direction: "慢针方向",
+      amount: value
+    });
+    assert.equal(res2.status, 400, `应拒绝 amount=${JSON.stringify(value)}`);
+    assert.match(res2.body.error, /amount/);
+  }
+  let history = await api("GET", `/clocks/${clockId}/history`);
+  assert.equal(history.body.data.adjustments.length, 0);
+
+  // 合法调校：正常新增
+  const ok = await api("POST", `/clocks/${clockId}/adjustments`, {
+    currentDailyRateSeconds: 55,
+    direction: "慢针方向",
+    amount: "快慢针向慢侧0.3格"
+  });
+  assert.equal(ok.status, 201);
+  assert.equal(ok.body.data.direction, "慢针方向");
+  history = await api("GET", `/clocks/${clockId}/history`);
+  assert.equal(history.body.data.adjustments.length, 1);
+});
+
 test("旧接口必填字段传 null 同样被拒绝，正常流程不受影响", async () => {
   // 建钟：必填字段为 null
   const nullCode = await api("POST", "/clocks", {

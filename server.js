@@ -276,6 +276,8 @@ async function handle(req, res) {
   if (req.method === "POST" && pathname === "/clocks") {
     const body = await parseBody(req);
     required(body, ["code", "escapementType", "balanceFrequency"]);
+    const escapementType = requiredString(body.escapementType, "escapementType必须是非空字符串");
+    const balanceFrequency = requiredString(body.balanceFrequency, "balanceFrequency必须是非空字符串");
     if (body.customerId !== undefined && body.customerId !== null) {
       findCustomer(db, body.customerId);
     }
@@ -285,8 +287,8 @@ async function handle(req, res) {
     const clock = {
       id: makeId("clock"),
       code: body.code,
-      escapementType: body.escapementType,
-      balanceFrequency: body.balanceFrequency,
+      escapementType,
+      balanceFrequency,
       targetDailyRateSeconds: body.targetDailyRateSeconds ?? 30,
       note: body.note || "",
       customerId: body.customerId || null,
@@ -316,12 +318,14 @@ async function handle(req, res) {
     const body = await parseBody(req);
     required(body, ["currentDailyRateSeconds", "direction", "amount"]);
     validNumber(body.currentDailyRateSeconds, "currentDailyRateSeconds", -DAY_SECONDS, DAY_SECONDS);
+    const direction = requiredString(body.direction, "direction必须是非空字符串");
+    const amount = requiredString(body.amount, "amount必须是非空字符串");
     const adjustment = {
       id: makeId("adjustment"),
       clockId: clock.id,
       currentDailyRateSeconds: body.currentDailyRateSeconds,
-      direction: body.direction,
-      amount: body.amount,
+      direction,
+      amount,
       note: body.note || "",
       createdAt: new Date().toISOString()
     };

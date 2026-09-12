@@ -59,6 +59,8 @@ npm test
 - 数值字段只接受 JSON 数字（字符串、对象、数组、布尔一律 400）：
   `targetDailyRateSeconds` ∈ (0, 86400]（省略或传 `null` 默认 30），
   `currentDailyRateSeconds`、`dailyRateSeconds` ∈ [-86400, 86400]，`amplitude` ∈ (0, 360]
+- 字符串字段 `escapementType`、`balanceFrequency`、`direction`、`amount` 必须是非空字符串
+  （数字、对象、数组、纯空白一律 400，合法值裁剪首尾空格后落盘）
 - 非法请求只返回 400 错误，不会写入任何客户、送修或修改记录
 
 ## 闭环示例
