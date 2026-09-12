@@ -139,12 +139,21 @@ function makeId(prefix) {
 }
 
 function required(body, fields) {
-  const missing = fields.filter((field) => body[field] === undefined || body[field] === "");
+  const missing = fields.filter((field) => body[field] === undefined || body[field] === null || body[field] === "");
   if (missing.length) {
     const error = new Error(`缺少字段：${missing.join(", ")}`);
     error.status = 400;
     throw error;
   }
+}
+
+function requiredString(value, message) {
+  if (typeof value !== "string" || !value.trim()) {
+    const error = new Error(message);
+    error.status = 400;
+    throw error;
+  }
+  return value.trim();
 }
 
 function findClock(db, clockId) {
@@ -178,8 +187,9 @@ function findIntake(db, intakeId) {
 }
 
 function parseDate(value, message) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
+  const isDateLike = typeof value === "string" || typeof value === "number";
+  const date = isDateLike ? new Date(value) : null;
+  if (!date || Number.isNaN(date.getTime())) {
     const error = new Error(message);
     error.status = 400;
     throw error;
@@ -382,12 +392,8 @@ async function handle(req, res) {
   if (req.method === "POST" && pathname === "/customers") {
     const body = await parseBody(req);
     required(body, ["name", "phone"]);
-    const phone = String(body.phone).trim();
-    if (!phone) {
-      const error = new Error("联系电话不能为空");
-      error.status = 400;
-      throw error;
-    }
+    const name = requiredString(body.name, "客户姓名必须是非空字符串");
+    const phone = requiredString(body.phone, "联系电话必须是非空字符串");
     const duplicated = db.customers.find((item) => item.phone === phone);
     if (duplicated) {
       const error = new Error(`联系电话已登记：${phone}（客户：${duplicated.name}）`);
@@ -396,7 +402,7 @@ async function handle(req, res) {
     }
     const customer = {
       id: makeId("customer"),
-      name: String(body.name).trim(),
+      name,
       phone,
       note: body.note || "",
       createdAt: new Date().toISOString()
@@ -453,12 +459,15 @@ async function handle(req, res) {
     }
     const customer = findCustomer(db, clock.customerId);
     parseDate(body.expectedPickupDate, "预计取件日期不合法");
+    if (body.receivedAt !== undefined && body.receivedAt !== null) {
+      parseDate(body.receivedAt, "送修时间不合法");
+    }
     const status = validStatus(body.status || "在修");
     const intake = {
       id: makeId("intake"),
       clockId: clock.id,
       customerId: customer.id,
-      receivedAt: body.receivedAt || new Date().toISOString(),
+      receivedAt: body.receivedAt ?? new Date().toISOString(),
       status,
       expectedPickupDate: body.expectedPickupDate,
       note: body.note || "",
@@ -497,6 +506,7 @@ async function handle(req, res) {
       intake.note = body.note;
     }
     if (body.receivedAt !== undefined) {
+      parseDate(body.receivedAt, "送修时间不合法");
       intake.receivedAt = body.receivedAt;
     }
     await writeDb(db);
